@@ -156,4 +156,81 @@ ORDER BY
 - Some tags look like keyword-matching errors (`chef`, `go`, `flow`, `crystal`). They may come from the job description text rather than real tool requirements.
 - The two SmartAsset jobs list the same 9 skills (likely the same role posted twice), so their skills are counted twice.
 
+## 3. Demand and Salary of the 3 Main Data Roles
+**Question:** How do Data Analyst, Data Engineer and Data Scientist compare in demand and pay across the whole market (remote and on-site)?
+
+**Approach**
+- Filtered the 3 roles with `IN` and grouped by `job_title_short`.
+- Measured demand with `COUNT(*)` over all postings.
+- Used `COUNT(salary_year_avg)` to show how many postings the salary figures are based on. `AVG` skips `NULL`s, so there was no need for a filter that would also have reduced the demand count.
+- Added the **median** with `PERCENTILE_CONT(0.5) WITHIN GROUP (...)`, which outliers like the $650K posting from Query 1 can't push up.
+
+```sql
+SELECT
+    job_title_short                                 AS job_role,
+    COUNT(*)                                        AS demand_count,
+    COUNT(salary_year_avg)                          AS postings_with_salary,
+    ROUND(AVG(salary_year_avg), 0)                  AS avg_salary,
+    ROUND(
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary_year_avg)::NUMERIC,
+        0
+    )                                               AS median_salary
+FROM
+    job_postings_fact
+WHERE
+    job_title_short IN ('Data Analyst', 'Data Engineer', 'Data Scientist')
+GROUP BY
+    job_title_short
+ORDER BY
+    demand_count DESC;
+```
+
+**Results**
+
+| Role | Postings (Demand) | Share of Demand | Postings with Salary | Avg Salary | Median Salary |
+|---|---:|---:|---:|---:|---:|
+| Data Analyst | 196,593 | 35.4% | 5,463 | $93,876 | $90,000 |
+| Data Engineer | 186,679 | 33.6% | 4,509 | $130,267 | $125,000 |
+| Data Scientist | 172,726 | 31.1% | 5,926 | $135,929 | $127,500 |
+
+*Share of demand is calculated over the 555,998 postings for these 3 roles.*
+
+**Insights**
+- **Demand is high for all 3 roles.** Demand is spread almost evenly (35% / 34% / 31%). Data Analyst leads with about 24K more postings than Data Scientist (+14%).
+- **Higher demand does not mean higher pay.** The order by demand is the opposite of the order by salary. Data Analyst has the most openings but the lowest pay, and Data Scientist has the fewest openings but the highest pay.
+- **There is a large pay gap between analysts and the other two roles.** Data Scientists earn **~45% more** than Data Analysts on average ($135.9K vs. $93.9K), and Data Engineers **~39% more** ($130.3K). Engineers and Scientists are close to each other (about 4% apart).
+- **Data Engineer has the best balance of demand and pay.** It has the 2nd-highest demand and pays only $2.5K less than Data Scientist at the median.
+- **A few high salaries pull the averages up.** The average is above the median for all 3 roles, by the most for Data Scientist (+$8.4K). That means a small number of very high salaries pull the average up, so the median is the more realistic number to expect.
+- **The top of the market pays much more than a typical job.** The top-10 remote analyst salaries from Query 1 ($186K+) are about **2x the Data Analyst median** ($90K).
+
+**Data quality notes**
+- Only **~3% of postings include a salary** (2.4%–3.4% depending on the role). Salary numbers are based on 4.5K–5.9K postings per role, which is still a solid sample but may not represent every posting.
+
+# Conclusions
+
+### What the data says
+1. **Data Analyst is the easiest way into the field.** It is the most in-demand role (196K postings), so it has the most openings for people starting out.
+2. **Seniority and role path drive salary.** Moving from Analyst to Principal or Director level (Query 1), or to Data Engineering or Data Science (Query 3), is where the biggest salary increases are, up to roughly +40% at the median.
+3. **SQL is the foundation.** It appeared in **100%** of the top-paying jobs that list skills. **Python** and **Tableau** follow (88% each).
+4. **Senior roles go beyond analysis.** The best-paid jobs add cloud data platforms (Snowflake, AWS, Azure, Databricks) and engineering tools (Git, Jira).
+5. **Remote analyst jobs can pay at senior level.** Remote Data Analyst / BI roles reached $186K–$336K, excluding the outlier.
+
+### A learning path based on these results
+**SQL → Excel + Tableau / Power BI → Python (pandas) → a cloud warehouse (Snowflake / AWS / Azure) → Git**
+
+This path covers the requirements of an entry-level Data Analyst role and builds toward the skills that the highest-paying analyst roles ask for, or toward a move into Data Engineering.
+
+### SQL techniques used
+- `JOIN`s on a star schema, including a many-to-many **bridge table**, with `LEFT JOIN` used on purpose to avoid losing rows
+- **CTEs** to reuse one query's logic in another
+- Aggregations: `COUNT`, `AVG`, `GROUP BY`, `STRING_AGG(... ORDER BY ...)`
+- Statistical functions: `PERCENTILE_CONT ... WITHIN GROUP` for medians
+- Text filters with `ILIKE` and `IN`, type casting with `::`, and `NULL` handling
+
+### Limitations
+- Salary is reported in only ~3% of postings, and some values look like outliers (e.g., $650K).
+- Skill tags come from keyword matching and include some noise (`chef`, `go`).
+- The `job_work_from_home` flag includes some hybrid postings.
+- Data covers 2023 postings, so current market conditions may differ.
+
 
