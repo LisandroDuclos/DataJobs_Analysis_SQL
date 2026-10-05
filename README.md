@@ -3,7 +3,6 @@
 
 🔍 SQL queries: [Project_Queries](Project_Queries/)
 
-# Background
 The data job market is crowded and fast-moving, so it's hard to know which skills to learn first. This project uses real 2026 job postings to find the roles and skills that pay best and are most in demand, so you can make that choice based on data.
 
 
